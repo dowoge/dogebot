@@ -22,12 +22,12 @@ local states={
 }
 local styles={
     ['autohop']=1,
-    ['scroll']=1,
-    ['sideways']=1,
-    ['halfsideways']=1,
-    ['wonly']=1,
-    ['aonly']=1,
-    ['backwards']=1
+    ['scroll']=2,
+    ['sideways']=3,
+    ['halfsideways']=4,
+    ['wonly']=5,
+    ['aonly']=6,
+    ['backwards']=7
 }
 local ranks={
     'New',
