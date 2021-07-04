@@ -30,7 +30,7 @@ local styles={
     ['backwards']=7
 }
 setmetatable(styles,{__index=function(self,i)
-    if i=='a' then i='auto'elseif i=='hsw'then i='half'elseif i=='sw'then i='side'elseif i=='bw'then i='back'end
+    if i=='a' then i='auto'elseif i=='hsw'then i='half'elseif i=='s'then i='scroll'elseif i=='sw'then i='side'elseif i=='bw'then i='back'end
     for ix,v in pairs(self) do
         if string.sub(ix,1,#i):find(i:lower()) then
             return self[ix]
