@@ -10,34 +10,11 @@ local prefix = '%'
 local strafesurl = 'https://api.strafes.net/v1/'
 discordia.extensions()
 
-local games={
-    ['bhop']=1,
-    ['surf']=2
-}
-local states={
-    [0]='default',
-    [1]='whitelisted',
-    [2]='blacklisted',
-    [3]='pending'
-}
-local styles={
-    ['autohop']=1,
-    ['scroll']=2,
-    ['sideways']=3,
-    ['halfsideways']=4,
-    ['wonly']=5,
-    ['aonly']=6,
-    ['backwards']=7
-}
-local stylesr={
-    'Autohop',
-    'Scroll',
-    'Sideways',
-    'Half-Sideways',
-    'W-Only',
-    'A-Only',
-    'Backwards',
-}
+local games={['bhop']=1,['surf']=2}
+local states={[0]='default',[1]='whitelisted',[2]='blacklisted',[3]='pending'}
+local ranks={'New','Newb','Bad','Okay','Not Bad','Decent','Getting There','Advanced','Good','Great','Superb','Amazing','Sick','Master','Insane','Majestic','Baby Jesus','Jesus','Half God','God'}
+local stylesr={'Autohop','Scroll','Sideways','Half-Sideways','W-Only','A-Only','Backwards',}
+local styles={['autohop']=1,['scroll']=2,['sideways']=3,['halfsideways']=4,['wonly']=5,['aonly']=6,['backwards']=7}
 setmetatable(styles,{__index=function(self,i)
     if i=='a' then i='auto'elseif i=='hsw'then i='half'elseif i=='s'then i='scroll'elseif i=='sw'then i='side'elseif i=='bw'then i='back'end
     for ix,v in pairs(self) do
@@ -46,28 +23,6 @@ setmetatable(styles,{__index=function(self,i)
         end
     end
 end})
-local ranks={
-    'New',
-    'Newb',
-    'Bad',
-    'Okay',
-    'Not Bad',
-    'Decent',
-    'Getting There',
-    'Advanced',
-    'Good',
-    'Great',
-    'Superb',
-    'Amazing',
-    'Sick',
-    'Master',
-    'Insane',
-    'Majestic',
-    'Baby Jesus',
-    'Jesus',
-    'Half God',
-    'God'
-}
 local get=function(url,headers,params)
     local _,body=http.request('GET',url,headers,params)
     body=json.decode(body)
