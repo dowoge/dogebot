@@ -29,6 +29,15 @@ local styles={
     ['aonly']=6,
     ['backwards']=7
 }
+local stylesr={
+    'Autohop',
+    'Scroll',
+    'Sideways',
+    'Half-Sideways',
+    'W-Only',
+    'A-Only',
+    'Backwards',
+}
 setmetatable(styles,{__index=function(self,i)
     if i=='a' then i='auto'elseif i=='hsw'then i='half'elseif i=='s'then i='scroll'elseif i=='sw'then i='side'elseif i=='bw'then i='back'end
     for ix,v in pairs(self) do
@@ -97,6 +106,7 @@ end
 client:on('ready', function()
 	client:info('yeah '.. client.user.tag)
 	client:info('--------------------------------------------------------------')
+    client:setGame({name='%help';type=2})
 end)
 
 
@@ -116,7 +126,7 @@ client:on('messageCreate',function(message)
             message:reply('```'..info.displayName..' ('..info.name..')\n'..res.ID..'\n'..states[res.State]..'```')
         elseif args[2]~='me' and not args[2]:find('@') then
             local id=getUserID(message,args[2])
-            if not id then message:reply('no user found') return end
+            if not id then message:addReaction('❌') return end
             local info=getUserInfoFromID(id)
             local res=get(strafesurl..'user/'..id,APIHeader)
             message:reply('```'..info.displayName..' ('..info.name..')\n'..res.ID..'\n'..states[res.State]..'```')
@@ -126,27 +136,41 @@ client:on('messageCreate',function(message)
             local id=getIdFromRover(message,(mention and mention.id or author.id))
             local game=games[args[3]]
             local style=styles[args[4]]
-            if not id then message:reply('no user found') return end
-            local res=get(strafesurl..'rank/'..id..'?style='..style..'&game='..game,APIHeader) --/id?style=1&game=2
+            if not id then message:addReaction('❌') return end
+            local res
+            local s,e=pcall(function()
+                res=get(strafesurl..'rank/'..id..'?style='..style..'&game='..game,APIHeader) --/id?style=1&game=2
+            end)
+            print(s,e)
+            if not s then message:reply('style/game specified incorrectly i think')return end
             local stats={
+                style=stylesr[style],
                 rank=ranks[math.floor((res.Rank*19)+1)],
                 skill=math.floor(res.Skill*100)~=100 and string.sub(tostring(res.Skill*100), 1, #'00.000')..'%' or '100.000%',
                 placement=res.Placement
             }
-            message:reply('```Rank: '..stats.rank..'\nSkill: '..stats.skill..'\nPlacement: '..ordinal(res.Placement)..'```')
+            message:reply('```Style: '..stats.style..'\nRank: '..stats.rank..'\nSkill: '..stats.skill..'\nPlacement: '..ordinal(res.Placement)..'```')
         else
             local id = getUserID(message,args[2])
             local game=games[args[3]]
             local style=styles[args[4]]
-            if not id then message:reply('no user found') return end
-            local res=get(strafesurl..'rank/'..id..'?style='..style..'&game='..game,APIHeader) --/id?style=1&game=2
+            if not id then message:addReaction('❌') return end
+            local res
+            local s,e=pcall(function()
+                res=get(strafesurl..'rank/'..id..'?style='..style..'&game='..game,APIHeader) --/id?style=1&game=2
+            end)
+            print(s,e)
+            if not s then message:reply('style/game specified incorrectly i think')return end
             local stats={
+                style=stylesr[style],
                 rank=ranks[math.floor((res.Rank*19)+1)],
                 skill=math.floor(res.Skill*100)~=100 and string.sub(tostring(res.Skill*100), 1, #'00.000')..'%' or '100.000%',
                 placement=res.Placement
             }
-            message:reply('```Rank: '..stats.rank..'\nSkill: '..stats.skill..'\nPlacement: '..ordinal(res.Placement)..'```')
+            message:reply('```Style: '..stats.style..'\nRank: '..stats.rank..'\nSkill: '..stats.skill..'\nPlacement: '..ordinal(res.Placement)..'```')
         end
+    elseif args[1]==prefix..'help'then
+        message:reply('```rank <user> <game> <style>\nuser <user>\nhelp```')
     end
 end)
 
