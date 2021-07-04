@@ -1,17 +1,17 @@
 local discordia = require('discordia')
 local json = require('json')
 local http = require('coro-http')
-local client = discordia.Client()
 local ordinal = require('./modules/ordinal.lua')
 local token = require('./modules/token.lua')
 local APIKey = require('./modules/apikey.lua')
 local APIHeader = {{'api-key',APIKey}}
 local prefix = '%'
 local strafesurl = 'https://api.strafes.net/v1/'
+local client = discordia.Client()
 discordia.extensions()
 
 local games={['bhop']=1,['surf']=2}
-local states={[0]='default',[1]='whitelisted',[2]='blacklisted',[3]='pending'}
+local states={[0]='Default',[1]='Whitelisted',[2]='Blacklisted',[3]='Pending'}
 local ranks={'New','Newb','Bad','Okay','Not Bad','Decent','Getting There','Advanced','Good','Great','Superb','Amazing','Sick','Master','Insane','Majestic','Baby Jesus','Jesus','Half God','God'}
 local stylesr={'Autohop','Scroll','Sideways','Half-Sideways','W-Only','A-Only','Backwards',}
 local styles={['autohop']=1,['scroll']=2,['sideways']=3,['halfsideways']=4,['wonly']=5,['aonly']=6,['backwards']=7}
@@ -72,61 +72,70 @@ client:on('messageCreate',function(message)
 
     local args = content:split(' ')
     -- [user lookup]
-    if args[1] == prefix..'user' and args[2] then
-        if args[2]:find('@') or args[2]=='me' then
-            local id=getIdFromRover(message,(mention and mention.id or author.id))
-            if not id then return end
-            local info=getUserInfoFromID(id)
-            local res=get(strafesurl..'user/'..id,APIHeader)
-            message:reply('```'..info.displayName..' ('..info.name..')\n'..res.ID..'\n'..states[res.State]..'```')
-        elseif args[2]~='me' and not args[2]:find('@') then
-            local id=getUserID(message,args[2])
-            if not id then message:addReaction('❌') return end
-            local info=getUserInfoFromID(id)
-            local res=get(strafesurl..'user/'..id,APIHeader)
-            message:reply('```'..info.displayName..' ('..info.name..')\n'..res.ID..'\n'..states[res.State]..'```')
+    local j,q=pcall(function()
+        if args[1] == prefix..'user' and args[2] then
+            if args[2]:find('@') or args[2]=='me' then
+                local id=getIdFromRover(message,(mention and mention.id or author.id))
+                if not id then return end
+                local info=getUserInfoFromID(id)
+                local res=get(strafesurl..'user/'..id,APIHeader)
+                message:reply('```'..info.displayName..' ('..info.name..')\n'..res.ID..'\n'..states[res.State]..'```')
+            elseif args[2]~='me' and not args[2]:find('@') then
+                local id=getUserID(message,args[2])
+                if not id then message:addReaction('❌') return end
+                local info=getUserInfoFromID(id)
+                local res=get(strafesurl..'user/'..id,APIHeader)
+                message:reply('```'..info.displayName..' ('..info.name..')\n'..res.ID..'\n'..states[res.State]..'```')
+            end
+        elseif args[1]==prefix..'rank' and args[2] then
+            if args[2]:find('@')or args[2]=='me'then
+                local id=getIdFromRover(message,(mention and mention.id or author.id))
+                local game=games[args[3]]
+                local style=styles[args[4]]
+                if not id then message:addReaction('❌') return end
+                local res
+                local info
+                local s,e=pcall(function()
+                    res=get(strafesurl..'rank/'..id..'?style='..style..'&game='..game,APIHeader) --/id?style=1&game=2
+                    info=get(strafesurl..'user/'..id,APIHeader)
+                end)
+                print(s,e)
+                if not s then message:reply('style/game specified incorrectly i think')return end
+                local stats={
+                    style=stylesr[style],
+                    rank=ranks[math.floor((res.Rank*19)+1)],
+                    skill=math.floor(res.Skill*100)~=100 and string.sub(tostring(res.Skill*100), 1, #'00.000')..'%' or '100.000%',
+                    placement=res.Placement,
+                    state=states[info.State],
+                }
+                message:reply('```Style: '..stats.style..'\nRank: '..stats.rank..'\nSkill: '..stats.skill..'\nPlacement: '..ordinal(res.Placement)..'\nState: '..stats.state..'```')
+            else
+                local id = getUserID(message,args[2])
+                local game=games[args[3]]
+                local style=styles[args[4]]
+                if not id then message:addReaction('❌') return end
+                local res
+                local info
+                local s,e=pcall(function()
+                    res=get(strafesurl..'rank/'..id..'?style='..style..'&game='..game,APIHeader) --/id?style=1&game=2
+                    info=get(strafesurl..'user/'..id,APIHeader)
+                end)
+                print(s,e)
+                if not s then message:reply('style/game specified incorrectly i think')return end
+                local stats={
+                    style=stylesr[style],
+                    rank=ranks[math.floor((res.Rank*19)+1)],
+                    skill=math.floor(res.Skill*100)~=100 and string.sub(tostring(res.Skill*100), 1, #'00.000')..'%' or '100.000%',
+                    placement=res.Placement,
+                    state=states[info.State],
+                }
+                message:reply('```Style: '..stats.style..'\nRank: '..stats.rank..'\nSkill: '..stats.skill..'\nPlacement: '..ordinal(res.Placement)..'\nState: '..stats.state..'```')
+            end
+        elseif args[1]==prefix..'help'then
+            message:reply('```rank <user> <game> <style>\nuser <user>\nhelp```')
         end
-    elseif args[1]==prefix..'rank' and args[2] then
-        if args[2]:find('@')or args[2]=='me'then
-            local id=getIdFromRover(message,(mention and mention.id or author.id))
-            local game=games[args[3]]
-            local style=styles[args[4]]
-            if not id then message:addReaction('❌') return end
-            local res
-            local s,e=pcall(function()
-                res=get(strafesurl..'rank/'..id..'?style='..style..'&game='..game,APIHeader) --/id?style=1&game=2
-            end)
-            print(s,e)
-            if not s then message:reply('style/game specified incorrectly i think')return end
-            local stats={
-                style=stylesr[style],
-                rank=ranks[math.floor((res.Rank*19)+1)],
-                skill=math.floor(res.Skill*100)~=100 and string.sub(tostring(res.Skill*100), 1, #'00.000')..'%' or '100.000%',
-                placement=res.Placement
-            }
-            message:reply('```Style: '..stats.style..'\nRank: '..stats.rank..'\nSkill: '..stats.skill..'\nPlacement: '..ordinal(res.Placement)..'```')
-        else
-            local id = getUserID(message,args[2])
-            local game=games[args[3]]
-            local style=styles[args[4]]
-            if not id then message:addReaction('❌') return end
-            local res
-            local s,e=pcall(function()
-                res=get(strafesurl..'rank/'..id..'?style='..style..'&game='..game,APIHeader) --/id?style=1&game=2
-            end)
-            print(s,e)
-            if not s then message:reply('style/game specified incorrectly i think')return end
-            local stats={
-                style=stylesr[style],
-                rank=ranks[math.floor((res.Rank*19)+1)],
-                skill=math.floor(res.Skill*100)~=100 and string.sub(tostring(res.Skill*100), 1, #'00.000')..'%' or '100.000%',
-                placement=res.Placement
-            }
-            message:reply('```Style: '..stats.style..'\nRank: '..stats.rank..'\nSkill: '..stats.skill..'\nPlacement: '..ordinal(res.Placement)..'```')
-        end
-    elseif args[1]==prefix..'help'then
-        message:reply('```rank <user> <game> <style>\nuser <user>\nhelp```')
-    end
+    end)
+    print(j,q)
 end)
 
 -- 🤮🤮
