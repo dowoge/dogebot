@@ -2,6 +2,7 @@ local discordia = require('discordia')
 local json = require('json')
 local http = require('coro-http')
 local client = discordia.Client()
+local ordinal = require('./modules/ordinal.lua')
 local token = require('./modules/token.lua')
 local APIKey = require('./modules/apikey.lua')
 local APIHeader = {{'api-key',APIKey}}
@@ -13,7 +14,6 @@ local games={
     ['bhop']=1,
     ['surf']=2
 }
-
 local states={
     [0]='default',
     [1]='whitelisted',
@@ -29,6 +29,14 @@ local styles={
     ['aonly']=6,
     ['backwards']=7
 }
+setmetatable(styles,{__index=function(self,i)
+    if i=='a' then i='auto'elseif i=='hsw'then i='half'elseif i=='sw'then i='side'elseif i=='bw'then i='back'end
+    for ix,v in pairs(self) do
+        if string.sub(ix,1,#i):find(i:lower()) then
+            return self[ix]
+        end
+    end
+end})
 local ranks={
     'New',
     'Newb',
@@ -56,16 +64,24 @@ local get=function(url,headers,params)
     body=json.decode(body)
     return body
 end
-local getUserID=function(name)
+local getUserID=function(message,name)
     if type(tonumber(name))=='number' then
         return name
     else
         return get('https://api.roblox.com/users/get-by-username?username='..name)['Id']
     end
-    return 'No user found'
+    message:reply('No user found')
 end
-local getUserInfoFromID=function(id)
-    return get('https://users.roblox.com/v1/users/'..id)
+local getUserInfoFromID=function(userid)
+    return get('https://users.roblox.com/v1/users/'..userid)
+end
+local getIdFromRover=function(message,userid)
+    local idfromRover=get('https://verify.eryn.io/api/user/'..userid)
+    if not idfromRover.error then
+        return idfromRover.robloxId
+    end
+    message:reply(idfromRover.error)
+    return
 end
 --[[
     {
@@ -83,31 +99,89 @@ client:on('ready', function()
 	client:info('--------------------------------------------------------------')
 end)
 
+
 client:on('messageCreate',function(message)
     local content = message.content
-    local args=content:split(' ')
-    if args[1]==prefix..'user' and args[2] then
-        local id=getUserID(args[2])
-        local info=getUserInfoFromID(id)
-        local res=get(strafesurl..'user/'..id,APIHeader)
-        message:reply(info.displayName..' ('..info.name..')')
-        message:reply(res.ID)
-        message:reply(states[res.State])
+    local author = message.author
+    local mention = message.mentionedUsers and message.mentionedUsers.first or nil
+
+    local args = content:split(' ')
+    -- [user lookup]
+    if args[1] == prefix..'user' and args[2] then
+        if args[2]:find('@') or args[2]=='me' then
+            local id=getIdFromRover(message,(mention and mention.id or author.id))
+            if not id then return end
+            local info=getUserInfoFromID(id)
+            local res=get(strafesurl..'user/'..id,APIHeader)
+            message:reply('```'..info.displayName..' ('..info.name..')\n'..res.ID..'\n'..states[res.State]..'```')
+        elseif args[2]~='me' and not args[2]:find('@') then
+            local id=getUserID(message,args[2])
+            if not id then message:reply('no user found') return end
+            local info=getUserInfoFromID(id)
+            local res=get(strafesurl..'user/'..id,APIHeader)
+            message:reply('```'..info.displayName..' ('..info.name..')\n'..res.ID..'\n'..states[res.State]..'```')
+        end
     elseif args[1]==prefix..'rank' and args[2] then
-        local id=getUserID(args[2])
-        local game=games[args[3]]
-        local style=styles[args[4]]
-        local res=get(strafesurl..'rank/'..id..'?style='..style..'&game='..game,APIHeader) --/id?style=1&game=2
-        local stats={
-            rank=ranks[math.floor((res.Rank*19)+1)],
-            skill=string.sub(tostring(res.Skill*100), 1, #'00.000')..'%',
-            placement=res.Placement
-        }
-        message:reply(stats.rank)
-        message:reply(stats.skill)
-        message:reply(stats.placement)
+        if args[2]:find('@')or args[2]=='me'then
+            local id=getIdFromRover(message,(mention and mention.id or author.id))
+            local game=games[args[3]]
+            local style=styles[args[4]]
+            if not id then message:reply('no user found') return end
+            local res=get(strafesurl..'rank/'..id..'?style='..style..'&game='..game,APIHeader) --/id?style=1&game=2
+            local stats={
+                rank=ranks[math.floor((res.Rank*19)+1)],
+                skill=math.floor(res.Skill*100)~=100 and string.sub(tostring(res.Skill*100), 1, #'00.000')..'%' or '100.000%',
+                placement=res.Placement
+            }
+            message:reply('```Rank: '..stats.rank..'\nSkill: '..stats.skill..'\nPlacement: '..ordinal(res.Placement)..'```')
+        else
+            local id = getUserID(message,args[2])
+            local game=games[args[3]]
+            local style=styles[args[4]]
+            if not id then message:reply('no user found') return end
+            local res=get(strafesurl..'rank/'..id..'?style='..style..'&game='..game,APIHeader) --/id?style=1&game=2
+            local stats={
+                rank=ranks[math.floor((res.Rank*19)+1)],
+                skill=math.floor(res.Skill*100)~=100 and string.sub(tostring(res.Skill*100), 1, #'00.000')..'%' or '100.000%',
+                placement=res.Placement
+            }
+            message:reply('```Rank: '..stats.rank..'\nSkill: '..stats.skill..'\nPlacement: '..ordinal(res.Placement)..'```')
+        end
     end
 end)
+
+-- 🤮🤮
+-- client:on('messageCreate',function(message)
+--     local content = message.content
+--     local author = message.author
+--     local args=content:split(' ')
+--     if args[1]==prefix..'rank' and args[2] then
+--         local id=getUserID(message,args[2])
+--         local game=games[args[3]]
+--         local style=styles[args[4]]
+
+--         if args[2]:lower()=='me'then
+--             local idfromRover=get('https://verify.eryn.io/api/user/'..message.author.id)
+--             if idfromRover.error then
+--                 message:reply(idfromRover.error)
+--                 return
+--             else
+--                 id=getUserID(message,idfromRover.robloxId)
+--             end
+--         end
+
+
+--         local res=get(strafesurl..'rank/'..id..'?style='..style..'&game='..game,APIHeader) --/id?style=1&game=2
+--         local stats={
+--             rank=ranks[math.floor((res.Rank*19)+1)],
+--             skill=string.sub(tostring(res.Skill*100), 1, #'00.000')..'%',
+--             placement=res.Placement
+--         }
+--         message:reply(stats.rank)
+--         message:reply(stats.skill)
+--         message:reply(stats.placement)
+--     end
+-- end)
 
 
 client:run('Bot '..token)
